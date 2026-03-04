@@ -1,0 +1,8 @@
+.bsp/
+.idea/
+target/
+*.class
+*.log
+*.tasty
+.metals/
+.vscode/
