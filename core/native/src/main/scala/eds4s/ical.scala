@@ -61,9 +61,6 @@ private[eds4s] class LiveIcalConverter[F[_]: Sync] extends IcalConverter[F] {
     val uid = generateUid()
     renderVevent(eventToVeventLines(event, uid))
   }
-    val uid = UUID.randomUUID().toString
-    renderVevent(eventToVeventLines(event, uid))
-  }
 
   override def renderExistingEvent(event: Event): F[String] = Sync[F].delay {
     renderVevent(eventToVeventLines(event, event.uid))
