@@ -2,7 +2,7 @@
 // Copyright (C) 2024 EDS4S Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import org.typelevel.sbt.gha.RefPredicate
+import org.typelevel.sbt.gha.{RefPredicate, Ref, WorkflowStep, MatrixExclude}
 import org.typelevel.sbt.gha.Ref
 import sbtcrossproject.CrossPlugin.autoImport._
 import scalanativecrossproject.ScalaNativeCrossPlugin.autoImport._
@@ -37,9 +37,52 @@ val munitCatsEffectVersion = "2.2.0-RC1" // Cross-platform (JVM + Native)
 // Scala Native version
 val scalaNativeVersion = "0.5.10"
 
+// Scala Native CI configuration
+// Add platform matrix for JVM and Native
+ThisBuild / githubWorkflowBuildMatrixAdditions += "platform" -> List("JVM", "Native")
+
+// Exclude non-first Java versions for Native (only need one Java version for Native)
+ThisBuild / githubWorkflowBuildMatrixExclusions ++= {
+  val javaVersions = (ThisBuild / githubWorkflowJavaVersions).value
+  javaVersions.tail.map { java =>
+    MatrixExclude(Map("platform" -> "Native", "java" -> java.render))
+  }
+}
+
+// Setup Scala Native toolchain (clang, LLVM) for Native platform
+ThisBuild / githubWorkflowBuildPreamble ++= Seq(
+  WorkflowStep.Run(
+    List("sudo apt-get update", "sudo apt-get install -y clang lldb lld libunwind-dev libgc-dev libdbus-1-dev"),
+    name = Some("Install Scala Native dependencies"),
+    cond = Some("matrix.platform == 'Native'")
+  )
+)
+
+// Custom build steps for cross-platform testing
+ThisBuild / githubWorkflowBuild := Seq(
+  // Native linking step (required before running native tests)
+  WorkflowStep.Sbt(
+    List("coreNative / Test / nativeLink"),
+    name = Some("Link Native binary"),
+    cond = Some("matrix.platform == 'Native'")
+  ),
+  // Test coreJVM and dbus/exampes on JVM platform
+  WorkflowStep.Sbt(
+    List("coreJVM/test", "dbusJVM/test", "examples/compile"),
+    name = Some("Test JVM modules"),
+    cond = Some("matrix.platform == 'JVM'")
+  ),
+  // Test coreNative on Native platform
+  WorkflowStep.Sbt(
+    List("coreNative/test", "dbusNative/test"),
+    name = Some("Test Native modules"),
+    cond = Some("matrix.platform == 'Native'")
+  )
+)
+
 lazy val root = project
   .in(file("."))
-  .aggregate(core.jvm, core.native, dbus, examples)
+  .aggregate(core.jvm, core.native, dbus.jvm, dbus.native, examples)
   .enablePlugins(NoPublishPlugin)
   .settings(
     name := "eds4s"
@@ -70,25 +113,43 @@ lazy val core = crossProject(JVMPlatform, NativePlatform)
     // The IcalConverter for Native is implemented in native/src/main/scala
   )
 
-// DBus module - JVM only (depends on dbus-java which is JVM-only)
-lazy val dbus = project
+// DBus module - cross-compiled for JVM and Native
+// JVM: uses dbus-java library
+// Native: uses libdbus-1 FFI bindings
+lazy val dbus = crossProject(JVMPlatform, NativePlatform)
+  .crossType(CrossType.Full)
   .in(file("dbus"))
-  .dependsOn(core.jvm)
+  .dependsOn(core)
   .settings(
-    name := "eds4s-dbus",
+    name := "eds4s-dbus"
+  )
+  .jvmSettings(
+    // JVM-specific: use dbus-java library with weaver for testing
     libraryDependencies ++= Seq(
       "com.github.hypfvieh" % "dbus-java-core" % dbusJavaVersion,
       "com.github.hypfvieh" % "dbus-java-transport-native-unixsocket" % dbusJavaVersion,
       "org.typelevel" %% "weaver-cats" % weaverVersion % Test
-    )
+    ),
+    testFrameworks += new TestFramework("weaver.framework.CatsEffect")
   )
-
-// Examples - JVM only (depends on dbus which is JVM-only)
+  .nativeSettings(
+    // Native-specific: use libdbus-1 FFI bindings with munit for testing
+    libraryDependencies ++= Seq(
+      "org.typelevel" %%% "munit-cats-effect" % munitCatsEffectVersion % Test
+    ),
+    testFrameworks += new TestFramework("munit.Framework"),
+    nativeConfig ~= { c =>
+      c.withLinkingOptions("-ldbus-1" :: Nil)
+    }
+  )
+// Examples - JVM only (depends on dbus.jvm for now)
+// TODO: Add native examples once dbus.native is ready
 lazy val examples = project
   .in(file("examples"))
-  .dependsOn(dbus)
+  .dependsOn(dbus.jvm)
   .settings(
     name := "eds4s-examples",
+    tlCiMimaBinaryIssueCheck := false,
     publish / skip := true,
     Compile / run / fork := true,
     javaOptions ++= Seq(

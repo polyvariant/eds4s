@@ -12,6 +12,7 @@ Type-safe calendar and event management for Scala applications running on Linux 
 
 ## Prerequisites
 
+### JVM
 - Java 17+, Scala 3.3.x, sbt 1.9.x
 - Evolution Data Server (installed and running)
 
@@ -24,11 +25,33 @@ sudo dnf install evolution-data-server
 sudo pacman -S evolution-data-server
 ```
 
+### Scala Native
+- Scala Native 0.5.x, sbt 1.9.x
+- Evolution Data Server (same as JVM)
+- Native toolchain: clang, lld, libunwind-dev, libgc-dev
+- libdbus-1 development files (for DBus FFI bindings)
+
+```bash
+# Ubuntu/Debian
+sudo apt install evolution-data-server libdbus-1-dev clang lld libunwind-dev libgc-dev
+
+# Fedora  
+sudo dnf install evolution-data-server dbus-devel clang lld libunwind-devel libgc-devel
+
+# Arch Linux
+sudo pacman -S evolution-data-server dbus clang lld libunwind libgc
+```
+
 ## Installation
 
 ```scala
+// For JVM
 libraryDependencies += "org.polyvariant" %% "eds4s-core" % "0.1.0"
 libraryDependencies += "org.polyvariant" %% "eds4s-dbus" % "0.1.0"
+
+// For Scala Native
+libraryDependencies += "org.polyvariant" %%% "eds4s-core" % "0.1.0"
+libraryDependencies += "org.polyvariant" %%% "eds4s-dbus" % "0.1.0"
 ```
 
 ## Quick Start
@@ -125,11 +148,41 @@ sbt "examples/runMain eds4s.examples.QuickStart"
 ## Building & Testing
 
 ```bash
-sbt compile              # Compile
-sbt core/test            # Unit tests (no EDS required)
-sbt dbus/test            # Integration tests (requires EDS)
+sbt compile                    # Compile all modules
+sbt coreJVM/test               # Core JVM tests (no EDS required)
+sbt coreNative/test            # Core Native tests (no EDS required)  
+sbt dbusJVM/test               # DBus JVM integration tests (requires EDS)
+sbt dbusNative/test            # DBus Native tests (requires EDS + libdbus)
 ```
 
+## Scala Native Support
+
+EDS4S supports both JVM and Scala Native platforms:
+
+- **core**: Cross-compiled for JVM and Native
+  - JVM uses ical4j for ICS parsing
+  - Native uses a pure Scala ICS parser
+
+- **dbus**: Cross-compiled for JVM and Native
+  - JVM uses dbus-java library
+  - Native uses libdbus-1 FFI bindings
+
+### Native Dependencies
+
+On Debian/Ubuntu:
+```bash
+sudo apt install libdbus-1-dev clang lld libunwind-dev libgc-dev
+```
+
+On Fedora:
+```bash
+sudo dnf install dbus-devel clang lld libunwind-devel libgc-devel
+```
+
+On Arch Linux:
+```bash
+sudo pacman -S dbus clang lld libunwind libgc
+```
 ## License
 
 Apache 2.0

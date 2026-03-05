@@ -24,7 +24,7 @@ import cats.effect.Sync
 import cats.syntax.all.*
 
 import java.time.{Instant, ZoneId, ZonedDateTime, LocalDate}
-import java.util.UUID
+// UUID not available in Scala Native - using custom UID generator
 
 /** Pure Scala implementation of IcalConverter for Scala Native.
   * 
@@ -34,6 +34,15 @@ import java.util.UUID
   */
 private[eds4s] class LiveIcalConverter[F[_]: Sync] extends IcalConverter[F] {
 
+  // Counter for generating unique UIDs (since java.util.UUID is not available in Scala Native)
+  private val uidCounter = new java.util.concurrent.atomic.AtomicLong(0)
+
+  /** Generate a unique UID using nano time and counter */
+  private def generateUid(): String = {
+    val timestamp = System.nanoTime()
+    val counter = uidCounter.getAndIncrement()
+    f"$timestamp%016x-$counter%08x"
+  }
   override def parseEvent(ics: String): F[Event] = Sync[F].delay {
     val lines = unfoldIcsLines(ics)
     
@@ -49,6 +58,9 @@ private[eds4s] class LiveIcalConverter[F[_]: Sync] extends IcalConverter[F] {
   }
 
   override def renderEvent(event: EventData): F[String] = Sync[F].delay {
+    val uid = generateUid()
+    renderVevent(eventToVeventLines(event, uid))
+  }
     val uid = UUID.randomUUID().toString
     renderVevent(eventToVeventLines(event, uid))
   }
