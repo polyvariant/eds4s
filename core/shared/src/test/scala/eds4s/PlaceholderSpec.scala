@@ -20,11 +20,18 @@
 
 package eds4s
 
-import weaver.SimpleIOSuite
 import cats.effect.IO
+import munit.CatsEffectSuite
 
-object PlaceholderSpec extends SimpleIOSuite {
-  test("placeholder test") {
-    IO.pure(expect(true))
+class PlaceholderSpec extends CatsEffectSuite {
+  test("placeholder test - models are accessible") {
+    IO {
+      val event = Event(
+        uid = "test-uid",
+        summary = "Test Event",
+        startTime = java.time.Instant.now()
+      )
+      assertEquals(event.summary, "Test Event")
+    }
   }
 }

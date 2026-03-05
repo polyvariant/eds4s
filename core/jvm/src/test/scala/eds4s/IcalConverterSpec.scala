@@ -20,13 +20,12 @@
 
 package eds4s
 
-import weaver.SimpleIOSuite
 import cats.effect.IO
-import cats.syntax.all.*
+import cats.effect.unsafe.implicits.global
 import java.time.Instant
-import java.time.ZoneId
+import munit.CatsEffectSuite
 
-object IcalConverterSpec extends SimpleIOSuite {
+class IcalConverterSpec extends CatsEffectSuite {
 
   // Sample ICS string for a simple event
   private val sampleIcs =
@@ -49,15 +48,15 @@ object IcalConverterSpec extends SimpleIOSuite {
     val converter = IcalConverter[IO]
 
     for event <- converter.parseEvent(sampleIcs)
-    yield expect(event.uid == "test-uid-123") &&
-      expect(event.summary == "Test Event") &&
-      expect(event.description.contains("Test Description")) &&
-      expect(event.location.contains("Test Location"))
+    yield {
+      assertEquals(event.uid, "test-uid-123")
+      assertEquals(event.summary, "Test Event")
+      assertEquals(event.description, Some("Test Description"))
+      assertEquals(event.location, Some("Test Location"))
+    }
   }
 
-  test(
-    "renderEvent should create a valid VEVENT string (not wrapped in VCALENDAR)"
-  ) {
+  test("renderEvent should create a valid VEVENT string") {
     val converter = IcalConverter[IO]
     val now = Instant.parse("2024-01-01T10:00:00Z")
     val endTime = Instant.parse("2024-01-01T11:00:00Z")
@@ -72,13 +71,14 @@ object IcalConverterSpec extends SimpleIOSuite {
     )
 
     for ics <- converter.renderEvent(eventData)
-    yield
+    yield {
       // EDS expects just VEVENT, not wrapped in VCALENDAR
-      expect(ics.contains("BEGIN:VEVENT")) &&
-        expect(ics.contains("SUMMARY:Test Event")) &&
-        expect(ics.contains("DESCRIPTION:Test Description")) &&
-        expect(ics.contains("LOCATION:Test Location")) &&
-        expect(ics.contains("END:VEVENT"))
+      assert(ics.contains("BEGIN:VEVENT"))
+      assert(ics.contains("SUMMARY:Test Event"))
+      assert(ics.contains("DESCRIPTION:Test Description"))
+      assert(ics.contains("LOCATION:Test Location"))
+      assert(ics.contains("END:VEVENT"))
+    }
   }
 
   test("round-trip: render then parse should preserve event data") {
@@ -96,17 +96,20 @@ object IcalConverterSpec extends SimpleIOSuite {
     )
 
     for ics <- converter.renderEvent(originalEvent)
-    parsedEvent <- converter.parseEvent(ics)
-    yield expect(parsedEvent.summary == originalEvent.summary) &&
-      expect(parsedEvent.description == originalEvent.description) &&
-      expect(parsedEvent.location == originalEvent.location)
+        parsedEvent <- converter.parseEvent(ics)
+    yield {
+      assertEquals(parsedEvent.summary, originalEvent.summary)
+      assertEquals(parsedEvent.description, originalEvent.description)
+      assertEquals(parsedEvent.location, originalEvent.location)
+    }
   }
 
   test("parseEvent should fail for invalid ICS") {
     val converter = IcalConverter[IO]
     val invalidIcs = "NOT A VALID ICS STRING"
 
-    for result <- converter.parseEvent(invalidIcs).attempt
-    yield expect(result.isLeft, "Parsing invalid ICS should fail")
+    converter.parseEvent(invalidIcs).attempt.map { result =>
+      assert(result.isLeft, "Parsing invalid ICS should fail")
+    }
   }
 }

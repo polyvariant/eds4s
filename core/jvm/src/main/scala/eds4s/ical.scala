@@ -32,20 +32,14 @@ import net.fortuna.ical4j.util.CompatibilityHints
 
 import java.io.StringReader
 import java.time.{Instant, ZoneId, ZonedDateTime, LocalDate}
-import java.net.URI
 import java.util.UUID
 
-/** Converter between domain types and iCalendar format */
-trait IcalConverter[F[_]] {
-  def parseEvent(ics: String): F[Event]
-  def renderEvent(event: EventData): F[String]
-  def renderExistingEvent(event: Event): F[String]
-}
+/** JVM implementation of IcalConverter using ical4j library. */
+private[eds4s] class LiveIcalConverter[F[_]: Sync] extends IcalConverter[F] {
 
-object IcalConverter {
   // Initialize compatibility hints once at class loading
   // This is a global setting in ical4j, so we set it once
-  private val initCompatibilityHints: Unit = {
+  locally {
     CompatibilityHints.setHintEnabled(
       CompatibilityHints.KEY_RELAXED_PARSING,
       true
@@ -55,15 +49,6 @@ object IcalConverter {
       true
     )
   }
-
-  def apply[F[_]: Sync]: IcalConverter[F] = {
-    // Ensure hints are initialized by referencing the val
-    val _: Unit = initCompatibilityHints
-    new LiveIcalConverter[F]
-  }
-}
-
-private class LiveIcalConverter[F[_]: Sync] extends IcalConverter[F] {
 
   override def parseEvent(ics: String): F[Event] = Sync[F]
     .delay {
