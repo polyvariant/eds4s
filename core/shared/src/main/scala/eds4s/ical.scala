@@ -35,6 +35,5 @@ trait IcalConverter[F[_]] {
 }
 
 object IcalConverter {
-  def apply[F[_]: Sync]: IcalConverter[F] = 
-    new LiveIcalConverter[F]
+  def apply[F[_]: Sync]: IcalConverter[F] = new LiveIcalConverter[F]
 }

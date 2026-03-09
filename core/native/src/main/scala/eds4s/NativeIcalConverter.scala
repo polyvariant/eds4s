@@ -232,7 +232,7 @@ private[eds4s] class LiveIcalConverter[F[_]: Sync] extends IcalConverter[F] {
     timeZone: Option[String]
   ): String = {
     if (isAllDay) {
-      val date = LocalDate.ofInstant(instant, ZoneId.of("UTC"))
+      val date = ZonedDateTime.ofInstant(instant, ZoneId.of("UTC")).toLocalDate
       val formatted = f"${date.getYear}%04d${date.getMonthValue}%02d${date.getDayOfMonth}%02d"
       s"${name};VALUE=DATE:$formatted"
     } else {
