@@ -111,7 +111,6 @@ lazy val core = crossProject(JVMPlatform, NativePlatform)
   .nativeSettings(
     // Native-specific: no ical4j, pure Scala implementation
     // The IcalConverter for Native is implemented in native/src/main/scala
-    tlVersionIntroduced := "0.1.0"
   )
 
 // DBus module - cross-compiled for JVM and Native
@@ -141,8 +140,7 @@ lazy val dbus = crossProject(JVMPlatform, NativePlatform)
     testFrameworks += new TestFramework("munit.Framework"),
     nativeConfig ~= { c =>
       c.withLinkingOptions("-ldbus-1" :: Nil)
-    },
-    tlVersionIntroduced := "0.1.0"
+    }
   )
 // Examples - JVM only (depends on dbus.jvm for now)
 // TODO: Add native examples once dbus.native is ready
@@ -151,8 +149,8 @@ lazy val examples = project
   .dependsOn(dbus.jvm)
   .settings(
     name := "eds4s-examples",
+    tlCiMimaBinaryIssueCheck := false,
     publish / skip := true,
-    tlVersionIntroduced := "0.1.0",
     Compile / run / fork := true,
     javaOptions ++= Seq(
       "--add-opens",
