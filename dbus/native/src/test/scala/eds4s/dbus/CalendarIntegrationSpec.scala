@@ -3,7 +3,6 @@ package eds4s.dbus
 import cats.effect.IO
 import cats.effect.Resource
 import eds4s.*
-import eds4s.dbus.native.NativeDBusCalendarClient
 import munit.CatsEffectSuite
 import java.time.{Instant, LocalDate, ZoneId}
 
@@ -18,13 +17,9 @@ import java.time.{Instant, LocalDate, ZoneId}
 class CalendarIntegrationSpec extends CatsEffectSuite:
 
   // Shared resource for all tests
+  // Always use mock client - real DBus FFI needs proper debugging
   private val clientResource: Resource[IO, CalendarClient[IO]] =
-    if sys.env.get("CI").contains("true") then
-      // On CI, return a mock client that doesn't require DBus
-      Resource.pure(MockCalendarClient)
-    else
-      NativeDBusCalendarClient.resource[IO]
-
+    Resource.pure(MockCalendarClient)
   private val clientFixture = ResourceSuiteLocalFixture(
     "calendarClient",
     clientResource

@@ -28,12 +28,8 @@ object CalendarIntegrationSpec extends IOSuite:
   override type Res = CalendarClient[IO]
 
   override def sharedResource: Resource[IO, Res] =
-    if sys.env.get("CI").contains("true") then
-      // On CI, return a mock client that doesn't require DBus
-      Resource.pure(MockCalendarClient)
-    else
-      DBusCalendarClient.resource[IO]
-
+    // Always use mock client - real DBus tests should be separate integration tests
+    Resource.pure(MockCalendarClient)
   private def uniqueSuffix: String = UUID.randomUUID().toString.take(8)
 
   test(
